@@ -17,8 +17,8 @@ INITIAL_MESSAGE = {"role": "assistant", "content": "Salam Harmoni🙏 Ada yang b
 
 
 def setup_page():
-    st.set_page_config(page_title="Shavira Undiksha", layout="wide", page_icon="assets/images/logo.png")
-    st.sidebar.image("assets/images/logo.png")
+    st.set_page_config(page_title="Shavira Undiksha", layout="wide", page_icon="public/images/logo.png")
+    st.sidebar.image("public/images/logo.png")
     st.sidebar.title("Virtual Assistant Shavira Undiksha")
     st.sidebar.write("Hai, selamat datang di Virtual Assistant Undiksha! Aku siap membantumu.")
     st.sidebar.markdown("""
@@ -106,8 +106,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-# DEBUG RUNNING
-# streamlit run app/Home.py --server.port 3003
