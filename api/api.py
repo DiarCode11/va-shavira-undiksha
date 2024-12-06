@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request, UploadFile, File, 
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.security import APIKeyHeader
+import openpyxl
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_405_METHOD_NOT_ALLOWED
 from dotenv import load_dotenv
@@ -52,7 +53,7 @@ class DeleteDatasetsRequest(BaseModel):
 class ProcessRequest(BaseModel):
     llm: str
     model_llm: str
-    embbeder: str
+    embedder: str
     model_embedder: str
     chunk_size: int
     chunk_overlap: int
@@ -87,6 +88,10 @@ tags_metadata = [
         "description": "Gambar alur graph terbentuk."
     },
     {
+        "name": "logs",
+        "description": "Log aktivitas pengguna."
+    },
+    {
         "name": "chat",
         "description": "Percakapan pengguna dengan virtual assistant."
     },
@@ -106,10 +111,9 @@ app = FastAPI(
 
 
 # CORS Headers
-origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -185,7 +189,7 @@ async def list_datasets(request_http: Request, token: str = Depends(verify_beare
 
 # Endpoint untuk membaca konten file tertentu (Read)
 @app.get("/datasets/read/{filename}", tags=["datasets"])
-async def read_datasets(request_http: Request, filename: str, token: str = Depends(verify_bearer_token)):
+async def read_datasets(request_http: Request, filename: str):
     timestamp = get_current_time()
     file_path = os.path.join(DATASETS_DIR, filename)
     if not os.path.isfile(file_path):
@@ -367,29 +371,29 @@ async def raw_process(request_http: Request, request: ProcessRequest, token: str
     }
     if request.model_llm not in valid_model_llm.get(request.llm, []):
         raise HTTPException(status_code=400, detail=f"Model LLM untuk '{request.llm}' harus salah satu dari {valid_model_llm[request.llm]}.")
-    if not request.embbeder:
-        raise HTTPException(status_code=400, detail="Embbeder harus diisi dengan sesuai.")
+    if not request.embedder:
+        raise HTTPException(status_code=400, detail="Embedder harus diisi dengan sesuai.")
     if not request.model_embedder:
         raise HTTPException(status_code=400, detail="Model Embedder harus diisi dengan sesuai.")
     valid_embedder = ["openai", "ollama"]
-    if request.embbeder not in valid_embedder:
+    if request.embedder not in valid_embedder:
         raise HTTPException(status_code=400, detail="Embedder harus 'openai' atau 'ollama'.")
     valid_embedder_model = {
         "openai": ["text-embedding-3-large", "text-embedding-3-small"],
         "ollama": ["bge-m3", "mxbai-embed-large"]
     }
-    if request.model_embedder not in valid_embedder_model.get(request.embbeder, []):
-        raise HTTPException(status_code=400, detail=f"Model Embedder untuk '{request.embbeder}' harus salah satu dari {valid_embedder_model[request.embbeder]}.")
-    def get_embbeder():
-        if request.embbeder.lower() == "openai":
+    if request.model_embedder not in valid_embedder_model.get(request.embedder, []):
+        raise HTTPException(status_code=400, detail=f"Model Embedder untuk '{request.embedder}' harus salah satu dari {valid_embedder_model[request.embedder]}.")
+    def get_embedder():
+        if request.embedder.lower() == "openai":
             return OpenAIEmbeddings(api_key=openai_api_key, model=request.model_embedder)
-        elif request.embbeder.lower() == "ollama":
+        elif request.embedder.lower() == "ollama":
             return OllamaEmbeddings(base_url=ollama_base_url, model=request.model_embedder)
     if request.chunk_size <= 0:
         raise HTTPException(status_code=400, detail="Chunk Size harus diisi nilai lebih dari 0.")
     if request.chunk_overlap <= 0:
         raise HTTPException(status_code=400, detail="Chunk Overlap harus diisi nilai lebih dari 0.")
-    EMBEDDER = get_embbeder()
+    EMBEDDER = get_embedder()
     if not os.path.exists(DATASETS_DIR):
         os.makedirs(DATASETS_DIR)
     if not os.path.exists(VECTORDB_DIR):
@@ -431,7 +435,7 @@ async def raw_process(request_http: Request, request: ProcessRequest, token: str
         "timestamp": timestamp,
         "llm": request.llm,
         "model_llm": request.model_llm,
-        "embbeder": request.embbeder,
+        "embedder": request.embedder,
         "model_embedder": request.model_embedder,
         "chunk_size": request.chunk_size,
         "chunk_overlap": request.chunk_overlap,
@@ -443,7 +447,7 @@ async def raw_process(request_http: Request, request: ProcessRequest, token: str
         "method": f"{request_http.method} {request_http.url.path}",
         "status_code": 200,
         "success": True,
-        "description": f"Proses penyiapan dokumen berhasil diselesaikan dan embeddings berhasil disimpan pada vector database.\n###\nllm:{request.llm}\n###\nmodel_llm:{request.model_llm}\n###\nembbeder:{request.embbeder}\n###\nmodel_embedder:{request.model_embedder}\n###\nchunk_size:{request.chunk_size}\n###\nchunk_overlap:{request.chunk_overlap}\n###\ntotal_chunks:{len(chunks)}"
+        "description": f"Proses penyiapan dokumen berhasil diselesaikan dan embeddings berhasil disimpan pada vector database.\n###\nllm:{request.llm}\n###\nmodel_llm:{request.model_llm}\n###\nembedder:{request.embedder}\n###\nmodel_embedder:{request.model_embedder}\n###\nchunk_size:{request.chunk_size}\n###\nchunk_overlap:{request.chunk_overlap}\n###\ntotal_chunks:{len(chunks)}"
     })
     return api_response(
         status_code=200,
@@ -453,7 +457,7 @@ async def raw_process(request_http: Request, request: ProcessRequest, token: str
             "timestamp": timestamp,
             "llm": request.llm,
             "model_llm": request.model_llm,
-            "embbeder": request.embbeder,
+            "embedder": request.embedder,
             "model_embedder": request.model_embedder,
             "chunk_size": request.chunk_size,
             "chunk_overlap": request.chunk_overlap,
@@ -479,7 +483,7 @@ async def check_model(request_http: Request, token: str = Depends(verify_bearer_
             "last_update": sheet.cell(row=last_row, column=1).value or "Unknown",
             "llm": sheet.cell(row=last_row, column=2).value or "",
             "model_llm": sheet.cell(row=last_row, column=3).value or "",
-            "embbeder": sheet.cell(row=last_row, column=4).value or "",
+            "embedder": sheet.cell(row=last_row, column=4).value or "",
             "model_embedder": sheet.cell(row=last_row, column=5).value or "",
             "chunk_size": sheet.cell(row=last_row, column=6).value or "",
             "chunk_overlap": sheet.cell(row=last_row, column=7).value or "",
@@ -549,6 +553,32 @@ async def visualize_graph(request_http: Request, token: str = Depends(verify_bea
         return FileResponse(file_path, media_type="image/png")
     else:
         raise HTTPException(status_code=404, detail="Tidak ditemukan file graph.")
+
+
+# Endpoint untuk mendapatkan data dari logs
+@app.get("/logs", tags=["logs"])
+async def logs(request_http: Request, token: str = Depends(verify_bearer_token)):
+    file_path = "api/logs/log_activity.xlsx"
+    if os.path.exists(file_path):
+        try:
+            wb = openpyxl.load_workbook(file_path)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            headers = rows[0]
+            data = [dict(zip(headers, row)) for row in rows[1:]]
+            data = data[::-1]
+            return JSONResponse(
+                content={
+                    "status_code": 200,
+                    "success": True,
+                    "message": "OK",
+                    "data": data
+                }
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Gagal membaca file Excel: {str(e)}")
+    else:
+        raise HTTPException(status_code=404, detail="Tidak ditemukan file log.")
 
 
 # Enpoint untuk chat
@@ -677,7 +707,3 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         message=f"{error_messages}",
         data=None
     )
-
-
-# RUNNING API
-# uvicorn api.api:app --reload --port 3001
