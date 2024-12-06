@@ -1,10 +1,23 @@
 services:
   api:
+    container_name: api-shavira-fastapi
     build: .
-    command: sh -c "uvicorn api.api:app --reload --port 3001 --host=0.0.0.0"
+    command: sh -c "uvicorn api.api:app --host=0.0.0.0 --port 3001 --workers 8"
     env_file:
       - .env
     ports:
       - "3001:3001"
+    restart: always
+    volumes:
+      - .:/app
+  streamlit:
+    container_name: web-shavira-streamlit
+    build: .
+    command: streamlit run app/Home.py --server.port 3003 --server.address 0.0.0.0
+    env_file:
+      - .env
+    ports:
+      - "3003:3003"
+    restart: always
     volumes:
       - .:/app
