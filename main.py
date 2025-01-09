@@ -114,6 +114,6 @@ def build_graph(question):
     return contexts, answers
 
 
-
+build_graph("Siapa rektor undiksha?")
 # DEBUG QUERY EXAMPLES
 # build_graph("Siapa rektor undiksha? Berikan 1 berita saja. Saya lupa password sso email@undiksha.ac.id sudah ada akun google di hp. Cetak ktm 1234567890. Cek kelulusan nomor pendaftaran 1234567890 tanggal lahir 2001-01-31.")
